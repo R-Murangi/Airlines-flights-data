@@ -1,0 +1,7 @@
+category,value,count,MAE
+class,Business,18572,2787.42
+class,Economy,41016,869.29
+booking_window,1-7 days,6291,2853.55
+booking_window,8-14 days,8457,1758.82
+booking_window,15-30 days,20605,1298.39
+booking_window,31+ days,24235,1148.89

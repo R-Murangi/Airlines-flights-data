@@ -1,0 +1,20 @@
+{
+  "random_split_training": {
+    "MAE": 1290.0,
+    "RMSE": 2552.15,
+    "R2": 0.9874
+  },
+  "random_split_testing": {
+    "MAE": 1467.12,
+    "RMSE": 2928.98,
+    "R2": 0.9833
+  },
+  "unseen_flight_testing": {
+    "MAE": 2577.35,
+    "RMSE": 4789.84,
+    "R2": 0.9494
+  },
+  "unseen_flight_train_rows": 246821,
+  "unseen_flight_test_rows": 51119,
+  "note": "Historical dataset results. Random splits may share flight patterns. Feature importance is not causation."
+}

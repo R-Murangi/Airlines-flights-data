@@ -1,0 +1,17 @@
+{
+  "train_rows": 238352,
+  "test_rows": 59588,
+  "features": [
+    "airline",
+    "source_city",
+    "departure_time",
+    "stops",
+    "arrival_time",
+    "destination_city",
+    "class",
+    "duration",
+    "days_left"
+  ],
+  "random_state": 42,
+  "note": "Random train/test split. Results are dataset-specific, not live airfare guarantees."
+}
