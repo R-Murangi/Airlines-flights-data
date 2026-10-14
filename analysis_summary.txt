@@ -1,0 +1,15 @@
+AIRLINE FLIGHT DATA ANALYSIS — SUMMARY
+======================================
+Records: 300,153
+Columns: 12
+Airlines: 6
+Missing cells: 0
+Average ticket price (INR): 20,889.66
+Median ticket price (INR): 7,425.00
+Minimum ticket price (INR): 1,105
+Maximum ticket price (INR): 123,071
+Most represented airline: Vistara
+Most represented source city: Delhi
+Most represented destination city: Mumbai
+Note: Counts describe this dataset, not real-world market shares.
+Charts saved: 10

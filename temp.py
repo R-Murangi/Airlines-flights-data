@@ -1,242 +1,172 @@
-#Import the Libraries
+"""Airline flight data analysis and chart export."""
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import warnings
-warnings.filterwarnings('ignore')
-plt.style.use('default')
-sns.set_palette("husl")
 
-#Load the Dataset
-df = pd.read_csv('/kaggle/input/airlines-flights-data/airlines_flights_data.csv')
-print("Dataset Shape:", df.shape)
-print("\nDataset Info:")
-print(df.info())
+BASE_DIR = Path(__file__).resolve().parent
+CSV_FILE = BASE_DIR / 'airlines_flights_data.csv'
+IMAGES_DIR = BASE_DIR / 'images'
+IMAGES_DIR.mkdir(exist_ok=True)
+sns.set_theme(style='whitegrid', palette='husl')
 
-#Explore the Data
-print("First 5 rows:")
-print(df.head())
-print("\nDataset Description:")
-print(df.describe(include='all'))
 
-# Check the Data Quality
-print("Missing values:")
-print(df.isnull().sum())
-print("\nData types:")
-print(df.dtypes)
+def save_graph(filename):
+    path = IMAGES_DIR / filename
+    plt.savefig(path, dpi=200, bbox_inches='tight')
+    print(f'Saved graph: {path}')
+    plt.close()
 
-#Data Overview
-print("Unique values in categorical columns:")
-categorical_cols = df.select_dtypes(include=['object']).columns
-for col in categorical_cols:
-    print(f"{col}: {df[col].nunique()} unique values")
-    print(f"Sample: {df[col].unique()[:5]}")
-    print("-" * 30)
-    
-#Airlines and Frequencies
-airline_freq = df['airline'].value_counts()
-print("Airlines and frequencies:")
-print(airline_freq)
 
+if not CSV_FILE.exists():
+    raise FileNotFoundError(f'CSV file not found: {CSV_FILE}\nPut airlines_flights_data.csv next to temp.py.')
+
+df = pd.read_csv(CSV_FILE)
+required = ['airline', 'source_city', 'destination_city', 'departure_time',
+            'arrival_time', 'class', 'duration', 'days_left', 'price']
+missing_columns = [c for c in required if c not in df.columns]
+if missing_columns:
+    raise ValueError(f'Missing columns: {missing_columns}')
+
+print('DATASET OVERVIEW')
+print('Shape:', df.shape)
+print(df.head().to_string(index=False))
+print('\nMissing values:\n', df.isna().sum().to_string())
+print('\nDuplicate rows (excluding index):', df.drop(columns=['index'], errors='ignore').duplicated().sum())
+print('\nSummary:\n', df.describe(include='all').to_string())
+
+# 1. Airline distribution
+counts = df['airline'].value_counts()
 plt.figure(figsize=(10, 8))
-plt.pie(airline_freq.values, labels=airline_freq.index, autopct='%1.1f%%', startangle=90)
-plt.title('Distribution of Airlines', fontsize=16, fontweight='bold')
+plt.pie(counts.values, labels=counts.index, autopct='%1.1f%%', startangle=90)
+plt.title('Distribution of Airline Records', fontsize=16, fontweight='bold')
 plt.axis('equal')
-plt.show()
+save_graph('01_airline_distribution.png')
 
-#Departure and Arrival Time Bar Graphs
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-
-departure_counts = df['departure_time'].value_counts().sort_index()
-ax1.bar(departure_counts.index, departure_counts.values, color='skyblue', alpha=0.7)
-ax1.set_title('Departure Times Distribution')
-ax1.set_xlabel('Departure Time')
-ax1.set_ylabel('Number of Flights')
-ax1.tick_params(axis='x', rotation=45)
-
-arrival_counts = df['arrival_time'].value_counts().sort_index()
-ax2.bar(arrival_counts.index, arrival_counts.values, color='lightcoral', alpha=0.7)
-ax2.set_title('Arrival Times Distribution')
-ax2.set_xlabel('Arrival Time')
-ax2.set_ylabel('Number of Flights')
-ax2.tick_params(axis='x', rotation=45)
-
+# 2. Departure and arrival times
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+for ax, column, title in zip(axes, ['departure_time', 'arrival_time'],
+                             ['Departure Time Distribution', 'Arrival Time Distribution']):
+    df[column].value_counts().plot.bar(ax=ax)
+    ax.set_title(title)
+    ax.set_xlabel('Time of Day')
+    ax.set_ylabel('Number of Records')
+    ax.tick_params(axis='x', rotation=45)
 plt.tight_layout()
-plt.show()
+save_graph('02_departure_arrival_times.png')
 
-#Source and Destination City Bar Graphs
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 12))
-
-source_counts = df['source_city'].value_counts()
-ax1.bar(source_counts.index, source_counts.values, color='lightgreen', alpha=0.8)
-ax1.set_title('Source Cities Distribution')
-ax1.set_xlabel('Source City')
-ax1.set_ylabel('Number of Flights')
-ax1.tick_params(axis='x', rotation=45)
-
-dest_counts = df['destination_city'].value_counts()
-ax2.bar(dest_counts.index, dest_counts.values, color='gold', alpha=0.8)
-ax2.set_title('Destination Cities Distribution')
-ax2.set_xlabel('Destination City')
-ax2.set_ylabel('Number of Flights')
-ax2.tick_params(axis='x', rotation=45)
-
+# 3. Source and destination cities
+fig, axes = plt.subplots(2, 1, figsize=(13, 11))
+for ax, column, title in zip(axes, ['source_city', 'destination_city'],
+                             ['Source City Distribution', 'Destination City Distribution']):
+    df[column].value_counts().plot.bar(ax=ax)
+    ax.set_title(title)
+    ax.set_ylabel('Number of Records')
+    ax.tick_params(axis='x', rotation=30)
 plt.tight_layout()
-plt.show()
+save_graph('03_city_distributions.png')
 
-#Price Variation with Airlines
-price_by_airline = df.groupby('airline')['price'].agg(['mean', 'median', 'std', 'min', 'max'])
-print("Price statistics by airline:")
-print(price_by_airline.round(2))
-
-plt.figure(figsize=(14, 8))
-sns.boxplot(data=df, x='airline', y='price', palette='Set2')
-plt.title('Price Variation Across Airlines', fontsize=16)
+# 4. Price by airline
+print('\nPRICE BY AIRLINE\n', df.groupby('airline')['price'].agg(['mean', 'median', 'std', 'min', 'max']).round(2))
+plt.figure(figsize=(13, 7))
+sns.boxplot(data=df, x='airline', y='price', hue='airline', palette='Set2', legend=False, showfliers=False)
+plt.title('Ticket Price by Airline (Outliers Hidden for Readability)')
 plt.xlabel('Airline')
-plt.ylabel('Price')
-plt.xticks(rotation=45)
+plt.ylabel('Price (INR)')
+plt.xticks(rotation=30)
 plt.tight_layout()
-plt.show()
+save_graph('04_prices_by_airline.png')
 
-# Price vs Departure and Arrival Time
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-
-df.groupby('departure_time')['price'].mean().plot(kind='bar', ax=ax1, color='steelblue')
-ax1.set_title('Average Price by Departure Time')
-ax1.set_xlabel('Departure Time')
-ax1.set_ylabel('Average Price')
-ax1.tick_params(axis='x', rotation=45)
-
-df.groupby('arrival_time')['price'].mean().plot(kind='bar', ax=ax2, color='darkorange')
-ax2.set_title('Average Price by Arrival Time')
-ax2.set_xlabel('Arrival Time')
-ax2.set_ylabel('Average Price')
-ax2.tick_params(axis='x', rotation=45)
-
+# 5. Average price by time of day
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+for ax, column, title in zip(axes, ['departure_time', 'arrival_time'],
+                             ['Average Price by Departure Time', 'Average Price by Arrival Time']):
+    df.groupby(column)['price'].mean().sort_values().plot.bar(ax=ax)
+    ax.set_title(title)
+    ax.set_ylabel('Average Price (INR)')
+    ax.tick_params(axis='x', rotation=45)
 plt.tight_layout()
-plt.show()
+save_graph('05_price_by_time.png')
 
-print("Average price by departure time:")
-print(df.groupby('departure_time')['price'].mean().round(2))
-
-# Price Changes with Source and Destination
-plt.figure(figsize=(15, 10))
-
-plt.subplot(2, 1, 1)
-source_price = df.groupby('source_city')['price'].mean().sort_values(ascending=False)
-plt.bar(source_price.index, source_price.values, color='lightblue', alpha=0.8)
-plt.title('Average Price by Source City')
-plt.xlabel('Source City')
-plt.ylabel('Average Price')
-plt.xticks(rotation=45)
-
-plt.subplot(2, 1, 2)
-dest_price = df.groupby('destination_city')['price'].mean().sort_values(ascending=False)
-plt.bar(dest_price.index, dest_price.values, color='lightcoral', alpha=0.8)
-plt.title('Average Price by Destination City')
-plt.xlabel('Destination City')
-plt.ylabel('Average Price')
-plt.xticks(rotation=45)
-
+# 6. Average price by source/destination
+fig, axes = plt.subplots(2, 1, figsize=(13, 11))
+for ax, column, title in zip(axes, ['source_city', 'destination_city'],
+                             ['Average Price by Source City', 'Average Price by Destination City']):
+    df.groupby(column)['price'].mean().sort_values().plot.bar(ax=ax)
+    ax.set_title(title)
+    ax.set_ylabel('Average Price (INR)')
+    ax.tick_params(axis='x', rotation=30)
 plt.tight_layout()
-plt.show()
+save_graph('06_price_by_city.png')
 
-print("Average price by source city:")
-print(source_price.round(2))
+# 7. Last-minute vs other bookings
+last_minute = df.loc[df['days_left'].isin([1, 2]), 'price']
+regular = df.loc[df['days_left'] > 2, 'price']
+print('\nLAST MINUTE MEAN:', last_minute.mean(), 'OTHER MEAN:', regular.mean())
+plt.figure(figsize=(9, 6))
+plt.bar(['1–2 days left', 'More than 2 days left'], [last_minute.mean(), regular.mean()])
+plt.title('Average Price by Days Until Departure')
+plt.ylabel('Average Price (INR)')
+plt.tight_layout()
+save_graph('07_last_minute_vs_regular.png')
 
-# Price Effect for Last-Minute Bookings
-if 'days_left' in df.columns:
-    last_minute = df[df['days_left'].isin([1, 2])]
-    regular = df[df['days_left'] > 2]
-    
-    print(f"Last-minute avg price: {last_minute['price'].mean():.2f}")
-    print(f"Regular booking avg price: {regular['price'].mean():.2f}")
-    
-    plt.figure(figsize=(10, 6))
-    categories = ['Last Minute\n(1-2 days)', 'Regular\n(>2 days)']
-    prices = [last_minute['price'].mean(), regular['price'].mean()]
-    
-    plt.bar(categories, prices, color=['red', 'green'], alpha=0.7)
-    plt.title('Price: Last Minute vs Regular Booking')
-    plt.ylabel('Average Price')
-    plt.show()
-else:
-    print("'days_left' column not found. Available columns:")
-    print(list(df.columns))
-    
-# Price Variation by Class
-if 'class' in df.columns:
-    class_price = df.groupby('class')['price'].agg(['mean', 'median', 'std', 'count'])
-    print("Price statistics by class:")
-    print(class_price.round(2))
-    
-    plt.figure(figsize=(12, 8))
-    
-    plt.subplot(1, 2, 1)
-    sns.boxplot(data=df, x='class', y='price', palette='viridis')
-    plt.title('Price Distribution by Class')
-    
-    plt.subplot(1, 2, 2)
-    avg_prices = df.groupby('class')['price'].mean()
-    plt.bar(avg_prices.index, avg_prices.values, color=['skyblue', 'gold'], alpha=0.8)
-    plt.title('Average Price by Class')
-    plt.ylabel('Average Price')
-    
-    plt.tight_layout()
-    plt.show()
-else:
-    print("'class' column not found. Available columns:")
-    print(list(df.columns))
-    
-#Vistara Delhi-Hyderabad Business Class Price
-vistara_del_hyd = df[
-    (df['airline'].str.contains('Vistara', case=False, na=False)) &
-    (df['source_city'].str.contains('Delhi', case=False, na=False)) &
-    (df['destination_city'].str.contains('Hyderabad', case=False, na=False))
-]
+# 8. Travel class
+print('\nPRICE BY CLASS\n', df.groupby('class')['price'].agg(['mean', 'median', 'std', 'count']).round(2))
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+sns.boxplot(data=df, x='class', y='price', hue='class', palette='Set2', legend=False, showfliers=False, ax=axes[0])
+axes[0].set_title('Price Distribution by Class')
+axes[0].set_ylabel('Price (INR)')
+df.groupby('class')['price'].mean().plot.bar(ax=axes[1])
+axes[1].set_title('Average Price by Class')
+axes[1].set_ylabel('Average Price (INR)')
+axes[1].tick_params(axis='x', rotation=0)
+plt.tight_layout()
+save_graph('08_price_by_class.png')
 
-if 'class' in df.columns:
-    vistara_del_hyd_business = vistara_del_hyd[
-        vistara_del_hyd['class'].str.contains('Business', case=False, na=False)
-    ]
-else:
-    vistara_del_hyd_business = vistara_del_hyd
+# 9. Duration vs price: sample for readability
+sample = df.sample(n=min(12000, len(df)), random_state=42)
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=sample, x='duration', y='price', hue='class', alpha=0.35, s=14)
+plt.title('Flight Duration vs Ticket Price (Sample)')
+plt.xlabel('Duration (Hours)')
+plt.ylabel('Price (INR)')
+plt.tight_layout()
+save_graph('09_duration_vs_price.png')
 
-print(f"Matching flights found: {len(vistara_del_hyd_business)}")
+# 10. Numeric correlation (exclude artificial index)
+numeric = df.select_dtypes(include=np.number).drop(columns=['index'], errors='ignore')
+plt.figure(figsize=(9, 7))
+sns.heatmap(numeric.corr(), annot=True, cmap='coolwarm', center=0, fmt='.2f')
+plt.title('Correlation of Numerical Variables')
+plt.tight_layout()
+save_graph('10_numeric_correlations.png')
 
-if len(vistara_del_hyd_business) > 0:
-    avg_price = vistara_del_hyd_business['price'].mean()
-    print(f"Average Price: ₹{avg_price:.2f}")
-    print(f"Price range: ₹{vistara_del_hyd_business['price'].min():.2f} - ₹{vistara_del_hyd_business['price'].max():.2f}")
-else:
-    print("No matching flights found.")
-    print("Available Vistara routes:")
-    vistara_flights = df[df['airline'].str.contains('Vistara', case=False, na=False)]
-    if len(vistara_flights) > 0:
-        print(vistara_flights.groupby(['source_city', 'destination_city']).size().head())
-        
-#Correlation Analysis
-numerical_cols = df.select_dtypes(include=[np.number]).columns
-if len(numerical_cols) > 1:
-    plt.figure(figsize=(10, 8))
-    correlation_matrix = df[numerical_cols].corr()
-    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, square=True)
-    plt.title('Correlation Matrix')
-    plt.tight_layout()
-    plt.show()
-    print("Correlation Matrix:")
-    print(correlation_matrix.round(3))
+# Specific route example from original project
+route = df.loc[(df['airline'] == 'Vistara') & (df['source_city'] == 'Delhi') &
+               (df['destination_city'] == 'Hyderabad') & (df['class'] == 'Business')]
+print('\nVISTARA DELHI TO HYDERABAD (BUSINESS)')
+print('Matching records:', len(route))
+if not route.empty:
+    print('Mean price (INR):', round(route['price'].mean(), 2))
+    print('Min/max price (INR):', route['price'].min(), route['price'].max())
 
-# CELL 16 - Summary Insights
-print("="*60)
-print("SUMMARY OF KEY INSIGHTS")
-print("="*60)
-print(f"Total flights: {len(df):,}")
-print(f"Airlines: {df['airline'].nunique()}")
-print(f"Average price: ₹{df['price'].mean():.2f}")
-print(f"Price range: ₹{df['price'].min():.2f} - ₹{df['price'].max():.2f}")
-print(f"Most popular airline: {df['airline'].mode()[0]}")
-print(f"Most popular source: {df['source_city'].mode()[0]}")
-print(f"Most popular destination: {df['destination_city'].mode()[0]}")
-print("Analysis Complete! ✈️")
+summary = f'''AIRLINE FLIGHT DATA ANALYSIS — SUMMARY
+======================================
+Records: {len(df):,}
+Columns: {len(df.columns)}
+Airlines: {df['airline'].nunique()}
+Missing cells: {int(df.isna().sum().sum()):,}
+Average ticket price (INR): {df['price'].mean():,.2f}
+Median ticket price (INR): {df['price'].median():,.2f}
+Minimum ticket price (INR): {df['price'].min():,}
+Maximum ticket price (INR): {df['price'].max():,}
+Most represented airline: {df['airline'].value_counts().idxmax()}
+Most represented source city: {df['source_city'].value_counts().idxmax()}
+Most represented destination city: {df['destination_city'].value_counts().idxmax()}
+Note: Counts describe this dataset, not real-world market shares.
+Charts saved: 10
+'''
+(BASE_DIR / 'analysis_summary.txt').write_text(summary, encoding='utf-8')
+print('\n' + summary)
+print('Done! Open the images folder to view all graphs.')
